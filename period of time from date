@@ -1,0 +1,12 @@
+#How to obtain a period of time from dates
+
+my_dates <- data %>% select(ID, start, end) 
+my_dates$start <- as.Date(my_dates$start, "%m/%d/%Y")
+my_dates$end <- as.Date(my_dates$end, "%m/%d/%Y")
+my_dates$diff <- my_dates$end - my_dates$start 
+my_dates$difftime_fx <- difftime(my_dates$end,my_dates$start ,units="days")
+my_dates$Lastobs <- as.integer(my_dates$diff / 30)
+
+my_dates <- my_dates %>% select(ID, Lastobs)
+
+data <- left_join(data, my_dates, by = "ID")
