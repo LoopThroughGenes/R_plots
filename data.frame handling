@@ -1,0 +1,135 @@
+## Data frame handlig that may be good to remember for another time
+
+##Reduction in tumor volume
+
+df<-data.frame("ID"=c(data_PCSS$ID),
+               "MR_EOT"=c(data_PCSS$MR_EOT),
+               "MR_res_3FU"=c(data_PCSS$MR_res_3FU),
+               "MR_baseline"=c(data_PCSS$MR_baseline)) 
+
+
+df$MR_diff_EOT <- df$MR_EOT - df$MR_baseline
+df$MR_diff_3F <- df$MR_res_3FU - df$MR_baseline
+
+
+##
+
+## making subsets
+
+
+FOXP3 <- data_PCSS %>% mutate(ratio = log2((FOXP3_post+0.1)/(FOXP3_pre+0.1)))     
+CD3   <- data_PCSS %>% mutate(ratio = log2((CD3_post+0.1)/(CD3_pre+0.1)) )    
+CD4   <- data_PCSS %>% mutate(ratio = log2((CD4_post+0.1)/(CD4_pre+0.1)) )    
+CD8   <- data_PCSS %>% mutate(ratio = log2((CD8_post+0.1)/(CD8_pre+0.1)) )    
+PD1   <- data_PCSS %>% mutate(ratio = log2((PD1_post+0.1)/(PD1_pre+0.1)) )    
+PDL1  <- data_PCSS %>% mutate(ratio = log2((PDL1_post+0.1)/(PDL1_pre+0.1)) )    
+
+df<-data.frame("FOXP3"=c(FOXP3$ratio), 
+               "CD3"=c(CD3$ratio),
+               "CD4"=c(CD4$ratio),
+               "CD8"=c(CD8$ratio),
+               "PD1"=c(PD1$ratio),
+               "PDL1"=c(PDL1$ratio))
+
+df[is.na(df)] <- 0
+
+# cale: (x - mean(x)) / sd(x)
+#scaled.df <- as.data.frame(scale(df))  %>% tibble::rowid_to_column(., "ID") 
+
+#colMeans(scaled.df)  # faster version of apply(scaled.dat, 2, mean)
+#apply(scaled.df, 2, sd)
+
+medianWithoutNA<-function(x) {
+        median(x[which(!is.na(x))])
+}
+
+apply(df, 2, medianWithoutNA)
+
+meanWithoutNA<-function(x) {
+        mean(x[which(!is.na(x))])
+}
+
+apply(df, 2, meanWithoutNA)
+apply(PDL1 %>% select(PDL1_post), 2, medianWithoutNA)
+apply(PDL1 %>% select(PDL1_post), 2, meanWithoutNA)
+
+
+df<-data.frame("FOXP3"=c(FOXP3$ratio), 
+               "CD3"=c(CD3$ratio),
+               "CD4"=c(CD4$ratio),
+               "CD8"=c(CD8$ratio),
+               "PD1"=c(PD1$ratio),
+               "PDL1"=c(PDL1$ratio)) %>% tibble::rowid_to_column(., "ID") %>%
+        mutate(ratio_sum = apply(.[,-1], 1, sum))
+
+all_ratios_df <- gather(df, "FOXP3", 
+                   "CD3", "CD4", "CD8", "PD1", "PDL1", 
+                   key = "IHC_marker", value = "log_ratio")
+
+
+###
+
+### Bar plot per patient. Scaled values
+
+
+df<-data.frame("FOXP3"=c(FOXP3$ratio), 
+               "CD3"=c(CD3$ratio),
+               "CD4"=c(CD4$ratio),
+               "CD8"=c(CD8$ratio),
+               "PD1"=c(PD1$ratio),
+               "PDL1"=c(PDL1$ratio))
+
+df[is.na(df)] <- 0
+
+# scale() function is equivalent to: (x - mean(x)) / sd(x)
+scaled.df <- as.data.frame(scale(df))  %>% tibble::rowid_to_column(., "ID") 
+
+all_ratios_df <- gather(scaled.df, "FOXP3", 
+                        "CD3", "CD4", "CD8", "PD1", "PDL1", 
+                        key = "IHC_marker", value = "log_ratio")
+
+
+Gleason_Out <- data_PCSS %>% tibble::rowid_to_column(., "ID") %>% select("ID", "PCSS_cat", "Gleason_score")
+
+plot_data <- left_join(all_ratios_df, Gleason_Out, by = "ID")
+
+
+
+ggplot(plot_data, aes(x=IHC_marker, y=log_ratio, fill=Gleason_score)) + 
+        geom_bar(stat="identity", color="black", position=position_dodge())+ 
+        facet_wrap(PCSS_cat~ID, labeller=label_both)+
+        scale_fill_viridis(option = "D")+
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 90))
+
+## plot by number of increased IHC.
+
+df_1<-data.frame("FOXP3"=c(FOXP3$ratio), 
+               "CD3"=c(CD3$ratio),
+               "CD4"=c(CD4$ratio),
+               "CD8"=c(CD8$ratio),
+               "PD1"=c(PD1$ratio),
+               "PDL1"=c(PDL1$ratio))
+
+
+df_1[df_1<0] <- 0
+df_1[df_1>0] <- 1
+df_1[is.na(df_1)] <- 0
+
+
+df_1 <- df_1 %>% mutate(ratio_sum = apply(., 1, sum)) 
+
+df_1 <- df_1 %>%  tibble::rowid_to_column(., "ID") 
+
+Gleason_Out <- data_PCSS %>% tibble::rowid_to_column(., "ID") %>% select("ID", "Lastobs", "PCSS_cat", "Gleason_score")
+
+plot_data <- left_join(df_1, Gleason_Out, by = "ID")
+
+fit <- survfit(Surv(Lastobs, PCSS_cat) ~ ratio_sum, data = plot_data)
+ggsurvplot(fit, data = plot_data, pval= TRUE, title = "Number of IHC markers increased")
+
+plot_data <- plot_data %>% filter(ratio_sum >)
+
+fit <- survfit(Surv(Lastobs, PCSS_cat) ~ ratio_sum, data = plot_data)
+ggsurvplot(fit, data = plot_data, pval= TRUE, title = "Number of IHC markers increased")
+
