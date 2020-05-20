@@ -1,0 +1,292 @@
+library(dplyr)
+library(tidyverse)
+library(data.table)
+library(eulerr)
+
+
+## making subsets
+
+
+FOXP3 <- data_UV1 %>% mutate(ratio = log2((FOXP3_post+0.1)/(FOXP3_pre+0.1))) %>% select("ID", ratio) %>% mutate(IHC = "FOXP3")
+CD3   <- data_UV1 %>% mutate(ratio = log2((CD3_post+0.1)/(CD3_pre+0.1)) ) %>% select("ID", ratio)  %>% mutate(IHC = "CD3")
+CD4   <- data_UV1 %>% mutate(ratio = log2((CD4_post+0.1)/(CD4_pre+0.1)) )%>% select("ID", ratio) %>% mutate(IHC = "CD4")
+CD8   <- data_UV1 %>% mutate(ratio = log2((CD8_post+0.1)/(CD8_pre+0.1)) )%>% select("ID", ratio) %>% mutate(IHC = "CD8")
+PD1   <- data_UV1 %>% mutate(ratio = log2((PD1_post+0.1)/(PD1_pre+0.1)) )%>% select("ID", ratio) %>% mutate(IHC = "PD1")
+PDL1  <- data_UV1 %>% mutate(ratio = log2((PDL1_post+0.1)/(PDL1_pre+0.1)) )%>% select("ID", ratio) %>% mutate(IHC = "PDL1")
+
+
+# Increase of FOXP3 and CD8 
+# 1V1 Overlap
+
+Up_FOXP3 <- FOXP3 %>% filter(ratio > 0)
+Up_CD8 <- CD8 %>% filter(ratio > 0)
+
+intersection <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_CD8 %>% select(ID)))))
+only_A <- as.numeric(nrow(setdiff((Up_FOXP3 %>% select(ID)), (Up_CD8 %>% select(ID)))))
+only_B <- as.numeric(nrow(setdiff((Up_CD8 %>% select(ID)), (Up_FOXP3 %>% select(ID)))))
+
+Overlaps <- c("A" = only_A, "B" = only_B, "A&B" = intersection)
+fit <- euler(Overlaps)
+plot(fit)
+
+plot(fit, main = "Overlap: Increase in IHC presence",
+     quantities = TRUE,
+     labels = c("FOXP3","CD8"))
+
+
+Venn_function <- function(dataset1, IHC1, dataset2, IHC2){
+  
+  Up_IHC1 <- dataset1 %>% filter(ratio > 0)
+  Up_IHC2 <- dataset2 %>% filter(ratio > 0)
+  
+  intersection <- as.numeric(nrow(intersect((Up_IHC1 %>% select(ID)), (Up_IHC2 %>% select(ID)))))
+  only_A <- as.numeric(nrow(setdiff((Up_IHC1 %>% select(ID)), (Up_IHC2 %>% select(ID)))))
+  only_B <- as.numeric(nrow(setdiff((Up_IHC2 %>% select(ID)), (Up_IHC1 %>% select(ID)))))
+  
+  Overlaps <- c("A" = only_A, "B" = only_B, "A&B" = intersection)
+  fit <- euler(Overlaps)
+  
+  p<-plot(fit, main = "Overlap: Increase in IHC presence",
+       quantities = TRUE,
+       labels = c(IHC1, IHC2))
+  png(paste("Venn", IHC1, IHC2, "increase", ".png", sep="_"), width=3,
+      height=3, units="in", res=300)
+  print(p)
+  dev.off() 
+  
+}
+
+Venn_function(FOXP3, "FOXP3", CD8, "CD8")
+Venn_function(FOXP3, "FOXP3", CD4, "CD4")
+Venn_function(CD8, "CD8", CD4, "CD4")
+Venn_function(PD1, "PD1", PDL1, "PDL1")
+Venn_function(PD1, "PD1", FOXP3, "FOXP3")
+
+### MEGA
+
+### Mega Euler plot
+
+
+
+Up_FOXP3 <- FOXP3 %>% filter(ratio > 0) # A
+Up_CD3   <- CD3   %>% filter(ratio > 0) # B
+Up_CD4   <- CD4   %>% filter(ratio > 0) # C
+Up_CD8   <- CD8   %>% filter(ratio > 0) # D
+Up_PD1   <- PD1   %>% filter(ratio > 0) # E
+Up_PDL1  <- PDL1  %>% filter(ratio > 0) #F
+
+rbind(Up_CD3, Up_CD4, Up_CD8, Up_PD1, Up_PDL1)
+
+only_A <- as.numeric(nrow(setdiff((Up_FOXP3 %>% select(ID)), ((rbind(Up_CD3, Up_CD4, Up_CD8, Up_PD1, Up_PDL1) %>% select(ID))))))
+only_B <- as.numeric(nrow(setdiff((Up_CD3 %>% select(ID)),   ((rbind(Up_FOXP3, Up_CD4, Up_CD8, Up_PD1, Up_PDL1) %>% select(ID))))))
+only_C <- as.numeric(nrow(setdiff((Up_CD4 %>% select(ID)),   ((rbind(Up_CD3, Up_FOXP3, Up_CD8, Up_PD1, Up_PDL1) %>% select(ID))))))
+only_D <- as.numeric(nrow(setdiff((Up_CD8 %>% select(ID)),   ((rbind(Up_CD3, Up_CD4, Up_FOXP3, Up_PD1, Up_PDL1) %>% select(ID))))))
+only_E <- as.numeric(nrow(setdiff((Up_PD1 %>% select(ID)),   ((rbind(Up_CD3, Up_CD4, Up_CD8, Up_FOXP3, Up_PDL1) %>% select(ID)))))
+only_F <- as.numeric(nrow(setdiff((Up_PDL1 %>% select(ID)),  ((rbind(Up_CD3, Up_CD4, Up_CD8, Up_PD1, Up_FOXP3) %>% select(ID))))))
+
+A_B <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_CD3  %>% select(ID)))))
+A_C <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_CD4  %>% select(ID)))))
+A_D <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_CD8  %>% select(ID)))))
+A_E <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_PD1  %>% select(ID)))))
+A_F <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_PDL1 %>% select(ID)))))
+
+B_C <- as.numeric(nrow(intersect((Up_CD3 %>% select(ID)), (Up_CD4 %>% select(ID)))))
+B_D <- as.numeric(nrow(intersect((Up_CD3 %>% select(ID)), (Up_CD8 %>% select(ID)))))
+B_E <- as.numeric(nrow(intersect((Up_CD3 %>% select(ID)), (Up_PD1 %>% select(ID)))))
+B_F <- as.numeric(nrow(intersect((Up_CD3 %>% select(ID)), (Up_PDL1%>% select(ID)))))
+
+C_D <- as.numeric(nrow(intersect((Up_CD4 %>% select(ID)), (Up_CD8  %>% select(ID)))))
+C_E <- as.numeric(nrow(intersect((Up_CD4 %>% select(ID)), (Up_PD1  %>% select(ID)))))
+C_F <- as.numeric(nrow(intersect((Up_CD4 %>% select(ID)), (Up_PDL1 %>% select(ID)))))
+
+D_E <- as.numeric(nrow(intersect((Up_CD8 %>% select(ID)), (Up_PD1  %>% select(ID)))))
+D_F <- as.numeric(nrow(intersect((Up_CD8 %>% select(ID)), (Up_PDL1 %>% select(ID)))))
+
+E_F <- as.numeric(nrow(intersect((Up_PD1 %>% select(ID)), (Up_PDL1 %>% select(ID)))))
+
+
+A_B_C <- as.numeric(nrow(
+  intersect(
+    intersect(Up_FOXP3 %>% select(ID), Up_CD3 %>% select(ID)),
+                      Up_CD4 %>% select(ID))))
+
+A_B_C_D <- as.numeric(nrow(
+  intersect(
+  intersect(
+    intersect(Up_FOXP3 %>% select(ID), Up_CD3 %>% select(ID)),
+    Up_CD4 %>% select(ID)), 
+  Up_CD8 %>% select(ID))
+  ))
+
+A_B_C_D_E <- as.numeric(nrow(
+  intersect(
+  intersect(
+    intersect(
+      intersect(Up_FOXP3 %>% select(ID), Up_CD3 %>% select(ID)),
+      Up_CD4 %>% select(ID)), 
+    Up_CD8 %>% select(ID)),
+  Up_PD1%>% select(ID))
+))
+
+A_B_C_D_E_F <- as.numeric(nrow(
+  intersect(
+  intersect(
+    intersect(
+      intersect(
+        intersect(Up_FOXP3 %>% select(ID), Up_CD3 %>% select(ID)),
+        Up_CD4 %>% select(ID)), 
+      Up_CD8 %>% select(ID)),
+    Up_PD1%>% select(ID)),
+  Up_PDL1%>% select(ID))
+))
+
+Mega <-  c(A = only_A, B = only_B, C = only_C, D = only_D, E = only_E, F = only_F,
+                    "A&B" = A_B, "A&C" = A_C, "A&D" = A_D,"A&E" = A_E,"A&F" = A_F, 
+                    "B&C" = B_C, "B&D" = B_D, "B&E" = B_E,"B&F" = B_F,           
+                    "C&D" = C_D, "C&E" = C_E, "C&F" = C_F,
+                    "D&E" = D_E, "D&F" = D_F, 
+                    "E&F" = E_F,
+                    "A&B&C" = A_B_C, "A&B&C&D" = A_B_C_D, "A&B&C&D&E" = A_B_C_D_E,
+                    "A&B&C&D&E&F" = A_B_C_D_E_F)
+fit3 <- euler(Mega, shape = "ellipse")
+plot(fit3, quantities = TRUE,
+     labels = c("FOXP3", "CD3", "CD4", "CD8", "PD1", "PDL1"))
+
+
+# Decreases
+
+
+Up_FOXP3 <- FOXP3 %>% filter(ratio < 0) # A
+Up_CD3   <- CD3   %>% filter(ratio < 0) # B
+Up_CD4   <- CD4   %>% filter(ratio < 0) # C
+Up_CD8   <- CD8   %>% filter(ratio < 0) # D
+Up_PD1   <- PD1   %>% filter(ratio < 0) # E
+Up_PDL1  <- PDL1  %>% filter(ratio < 0) #F
+
+rbind(Up_CD3, Up_CD4, Up_CD8, Up_PD1, Up_PDL1)
+
+only_A <- as.numeric(nrow(setdiff((Up_FOXP3 %>% select(ID)), ((rbind(Up_CD3, Up_CD4, Up_CD8, Up_PD1, Up_PDL1) %>% select(ID))))))
+only_B <- as.numeric(nrow(setdiff((Up_CD3 %>% select(ID)),   ((rbind(Up_FOXP3, Up_CD4, Up_CD8, Up_PD1, Up_PDL1) %>% select(ID))))))
+only_C <- as.numeric(nrow(setdiff((Up_CD4 %>% select(ID)),   ((rbind(Up_CD3, Up_FOXP3, Up_CD8, Up_PD1, Up_PDL1) %>% select(ID))))))
+only_D <- as.numeric(nrow(setdiff((Up_CD8 %>% select(ID)),   ((rbind(Up_CD3, Up_CD4, Up_FOXP3, Up_PD1, Up_PDL1) %>% select(ID))))))
+only_E <- as.numeric(nrow(setdiff((Up_PD1 %>% select(ID)),   ((rbind(Up_CD3, Up_CD4, Up_CD8, Up_FOXP3, Up_PDL1) %>% select(ID)))))
+only_F <- as.numeric(nrow(setdiff((Up_PDL1 %>% select(ID)),  ((rbind(Up_CD3, Up_CD4, Up_CD8, Up_PD1, Up_FOXP3) %>% select(ID))))))
+
+A_B <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_CD3  %>% select(ID)))))
+A_C <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_CD4  %>% select(ID)))))
+A_D <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_CD8  %>% select(ID)))))
+A_E <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_PD1  %>% select(ID)))))
+A_F <- as.numeric(nrow(intersect((Up_FOXP3 %>% select(ID)), (Up_PDL1 %>% select(ID)))))
+
+B_C <- as.numeric(nrow(intersect((Up_CD3 %>% select(ID)), (Up_CD4 %>% select(ID)))))
+B_D <- as.numeric(nrow(intersect((Up_CD3 %>% select(ID)), (Up_CD8 %>% select(ID)))))
+B_E <- as.numeric(nrow(intersect((Up_CD3 %>% select(ID)), (Up_PD1 %>% select(ID)))))
+B_F <- as.numeric(nrow(intersect((Up_CD3 %>% select(ID)), (Up_PDL1%>% select(ID)))))
+
+C_D <- as.numeric(nrow(intersect((Up_CD4 %>% select(ID)), (Up_CD8  %>% select(ID)))))
+C_E <- as.numeric(nrow(intersect((Up_CD4 %>% select(ID)), (Up_PD1  %>% select(ID)))))
+C_F <- as.numeric(nrow(intersect((Up_CD4 %>% select(ID)), (Up_PDL1 %>% select(ID)))))
+
+D_E <- as.numeric(nrow(intersect((Up_CD8 %>% select(ID)), (Up_PD1  %>% select(ID)))))
+D_F <- as.numeric(nrow(intersect((Up_CD8 %>% select(ID)), (Up_PDL1 %>% select(ID)))))
+
+E_F <- as.numeric(nrow(intersect((Up_PD1 %>% select(ID)), (Up_PDL1 %>% select(ID)))))
+
+
+A_B_C <- as.numeric(nrow(
+  intersect(
+    intersect(Up_FOXP3 %>% select(ID), Up_CD3 %>% select(ID)),
+    Up_CD4 %>% select(ID))))
+
+A_B_C_D <- as.numeric(nrow(
+  intersect(
+    intersect(
+      intersect(Up_FOXP3 %>% select(ID), Up_CD3 %>% select(ID)),
+      Up_CD4 %>% select(ID)), 
+    Up_CD8 %>% select(ID))
+))
+
+A_B_C_D_E <- as.numeric(nrow(
+  intersect(
+    intersect(
+      intersect(
+        intersect(Up_FOXP3 %>% select(ID), Up_CD3 %>% select(ID)),
+        Up_CD4 %>% select(ID)), 
+      Up_CD8 %>% select(ID)),
+    Up_PD1%>% select(ID))
+))
+
+A_B_C_D_E_F <- as.numeric(nrow(
+  intersect(
+    intersect(
+      intersect(
+        intersect(
+          intersect(Up_FOXP3 %>% select(ID), Up_CD3 %>% select(ID)),
+          Up_CD4 %>% select(ID)), 
+        Up_CD8 %>% select(ID)),
+      Up_PD1%>% select(ID)),
+    Up_PDL1%>% select(ID))
+))
+
+Mega <-  c(A = only_A, B = only_B, C = only_C, D = only_D, E = only_E, F = only_F,
+           "A&B" = A_B, "A&C" = A_C, "A&D" = A_D,"A&E" = A_E,"A&F" = A_F, 
+           "B&C" = B_C, "B&D" = B_D, "B&E" = B_E,"B&F" = B_F,           
+           "C&D" = C_D, "C&E" = C_E, "C&F" = C_F,
+           "D&E" = D_E, "D&F" = D_F, 
+           "E&F" = E_F,
+           "A&B&C" = A_B_C, "A&B&C&D" = A_B_C_D, "A&B&C&D&E" = A_B_C_D_E,
+           "A&B&C&D&E&F" = A_B_C_D_E_F)
+fit3 <- euler(Mega, shape = "ellipse")
+plot(fit3, quantities = TRUE,
+     labels = c("FOXP3", "CD3", "CD4", "CD8", "PD1", "PDL1"))
+
+
+## KM plots of the intersection
+
+
+## KM plot where FOXP3 and all the CDS increase or decreased together
+
+# Intersection patients: Survival plots where both IHC increased.
+
+
+Up_FOXP3 <- FOXP3 %>% filter(ratio > 0) # A
+Up_CD3   <- CD3   %>% filter(ratio > 0) # B
+Up_CD4   <- CD4   %>% filter(ratio > 0) # C
+Up_CD8   <- CD8   %>% filter(ratio > 0) # D
+Up_PD1   <- PD1   %>% filter(ratio > 0) # E
+
+
+intersection_IDs <- intersect(
+  intersect(
+  intersect(
+  intersect((Up_FOXP3 %>% select(ID)), (Up_CD4 %>% select(ID))),
+  Up_CD3 %>% select(ID)),
+  Up_CD8 %>% select(ID)),
+  Up_PD1 %>% select(ID))
+
+other_IDs <- setdiff(data %>% select(ID),intersection_IDs)
+
+
+
+plot_data <- bind_rows(data.temp_0, data.temp_1)
+
+fit <- survfit(Surv(Lastobs, PCSS_cat) ~ IHC_increase, data = plot_data)
+ggsurvplot(fit, data = plot_data, ylab= "PCSS", pval= TRUE, title = "FOXP3, CD3, CD4, CD8 and PD1 increased together")
+
+fit <- survfit(Surv(Lastobs, Overall_surv) ~ IHC_increase, data = plot_data)
+ggsurvplot(fit, data = plot_data, ylab= "Overall survival", pval= TRUE, title = "FOXP3, CD3, CD4, CD8 and PD1 increased together")
+
+
+####
+
+A_B_C_D_E_F <- as.numeric(nrow(
+  intersect(
+    intersect(
+      intersect(
+        intersect(
+          intersect(Up_FOXP3 %>% select(ID), Up_CD3 %>% select(ID)),
+          Up_CD4 %>% select(ID)), 
+        Up_CD8 %>% select(ID)),
+      Up_PD1%>% select(ID)),
+    Up_PDL1%>% select(ID))
+))
