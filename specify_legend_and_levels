@@ -1,0 +1,316 @@
+#Functions adjusted to use in an assay with 3 plates (24 wells, 8 series of 3) and only one seed per experiment.
+
+#LNCaP models = 20 000 cells seeded
+#C4-2  = 8 000 cells seeded
+
+library(tidyverse)
+library(ggplot2)
+library(stringr)
+
+
+Norm_by_DMSO <- function(data, seed, nSamples){
+
+  
+  Cell_drug <- data 
+  Cell_drug$ID <- cumsum(!duplicated(Cell_drug[1:2]))
+  dataset_Names <- unique(Cell_drug %>% select("ID", "Concentration", "Drug", "CellType"))
+  
+  # Calculate survival fraction = raw_cout/seed
+  Cell_drug$SF_0 <- Cell_drug %>% select("0Gy")/seed
+  Cell_drug$SF_2 <- Cell_drug %>% select("2Gy")/seed
+  Cell_drug$SF_3 <- Cell_drug %>% select("3Gy")/seed
+
+  #Get average SF of DMSO control at 0 Gy
+  mean_DMSO_control <- mean(Cell_drug$SF_0[1:3,])
+  
+  #Normalize all SF by DMSO control
+  Cell_drug$norm_0 <- Cell_drug %>% select("SF_0")/mean_DMSO_control
+  Cell_drug$norm_2 <- Cell_drug %>% select("SF_2")/mean_DMSO_control
+  Cell_drug$norm_3 <- Cell_drug %>% select("SF_3")/mean_DMSO_control
+
+  Norm_SF<- Cell_drug %>% select("ID", "norm_0", "norm_2", "norm_3")
+  
+  Empty <- Norm_SF %>% select("ID")
+  whole_tbl <- data.frame()
+  
+  for (i in seq(from=1, to=nSamples, by=3)){
+    
+    a=i
+    b=a+2
+    
+    temp <- Empty[a:b,]
+    
+    temp$AVG_0Gy <- mean(Norm_SF$norm_0[a:b,])
+    temp$AVG_2Gy <- mean(Norm_SF$norm_2[a:b,])
+    temp$AVG_3Gy <- mean(Norm_SF$norm_3[a:b,])
+    whole_tbl <- rbind(whole_tbl, temp)
+    
+  }
+  
+  AVG<- unique(whole_tbl)
+  
+  
+  Empty <- Norm_SF %>% select("ID")
+  whole_tbl <- data.frame()
+  
+  for (i in seq(from=1, to=nSamples, by=3)){
+    
+    a=i
+    b=a+2
+    
+    temp <- Empty[a:b,]
+    
+    temp$STD_0Gy <- sd(Norm_SF$norm_0[a:b,])
+    temp$STD_2Gy <- sd(Norm_SF$norm_2[a:b,])
+    temp$STD_3Gy <- sd(Norm_SF$norm_3[a:b,])
+    whole_tbl <- rbind(whole_tbl, temp)
+    
+  }
+  
+  STD <- unique(whole_tbl)
+  
+  
+  AVG_temp <- gather(AVG, "AVG_0Gy", 
+                     "AVG_2Gy", "AVG_3Gy", 
+                     key = "XR_dose_label", value = "AVG_SF")
+  
+  STD_temp <- gather(STD, "STD_0Gy", 
+                     "STD_2Gy", "STD_3Gy", 
+                     key = "XR_dose_label", value = "STD_SF")
+  
+  zero_A <- AVG_temp %>% filter(str_detect(XR_dose_label, "0")) %>%  mutate(XR_dose=0) %>% select(!"XR_dose_label")
+  two_A <-  AVG_temp %>% filter(str_detect(XR_dose_label, "2"))  %>%  mutate(XR_dose=2) %>% select(!"XR_dose_label")
+  three_A <- AVG_temp %>% filter(str_detect(XR_dose_label, "3")) %>%  mutate(XR_dose=3) %>% select(!"XR_dose_label")
+
+  
+  zero_S <- STD_temp %>% filter(str_detect(XR_dose_label, "0")) %>%  select(!"XR_dose_label")
+  two_S <-  STD_temp %>% filter(str_detect(XR_dose_label, "2"))  %>%  select(!"XR_dose_label")
+  three_S <- STD_temp %>% filter(str_detect(XR_dose_label, "3")) %>%  select(!"XR_dose_label")
+
+  zero <- left_join(zero_A, zero_S, by = "ID")
+  two <- left_join(two_A, two_S, by = "ID")
+  three <- left_join(three_A, three_S, by = "ID")
+
+  Results_table_temp <- bind_rows(zero, two, three)
+  
+  Results_table <- left_join(Results_table_temp, dataset_Names, by = "ID") %>% 
+    select("CellType", "Drug", "Concentration", "XR_dose", "AVG_SF", "STD_SF", "ID") 
+  return(Results_table)
+  
+}
+
+
+Norm_by_treatment <- function(data, seed, nSamples){
+  
+  Cell_drug <- data 
+  Cell_drug$ID <- cumsum(!duplicated(Cell_drug[1:2]))
+  dataset_Names <- unique(Cell_drug %>% select("ID", "Concentration", "Drug", "CellType"))
+  
+  # Calculate survival fraction = raw_cout/seed
+  Cell_drug$SF_0 <- Cell_drug %>% select("0Gy")/seed
+  Cell_drug$SF_2 <- Cell_drug %>% select("2Gy")/seed
+  Cell_drug$SF_3 <- Cell_drug %>% select("3Gy")/seed
+
+  
+  #Get average SF of DMSO control at 0 Gy
+  
+  Empty <- Cell_drug %>% select("ID")
+  whole_tbl <- data.frame()
+  
+  for (i in seq(from=1, to=nSamples, by=3)){
+    
+    a=i
+    b=a+2
+    
+    temp <- Empty[a:b,]
+    
+    temp$AVG_0Gy <- mean(Cell_drug$SF_0[a:b,])
+    whole_tbl <- rbind(whole_tbl, temp)
+    
+  }
+  
+  control_AVG <- unique(whole_tbl)
+  
+  Cell_drug <- left_join(Cell_drug, control_AVG, by = "ID")
+  
+  Cell_drug$norm_0 <- Cell_drug %>% select("SF_0") / Cell_drug %>% select("AVG_0Gy")
+  Cell_drug$norm_2 <- Cell_drug %>% select("SF_2") / Cell_drug %>% select("AVG_0Gy")
+  Cell_drug$norm_3 <- Cell_drug %>% select("SF_3") / Cell_drug %>% select("AVG_0Gy")
+
+  Norm_SF<- Cell_drug %>% select("ID", "norm_0", "norm_2", "norm_3")
+  
+  Empty <- Norm_SF %>% select("ID")
+  whole_tbl <- data.frame()
+  
+  for (i in seq(from=1, to=nSamples, by=3)){
+    
+    a=i
+    b=a+2
+    
+    temp <- Empty[a:b,]
+    
+    temp$AVG_0Gy <- mean(Norm_SF$norm_0[a:b,])
+    temp$AVG_2Gy <- mean(Norm_SF$norm_2[a:b,])
+    temp$AVG_3Gy <- mean(Norm_SF$norm_3[a:b,])
+    whole_tbl <- rbind(whole_tbl, temp)
+    
+  }
+  
+  AVG<- unique(whole_tbl)
+  
+  
+  Empty <- Norm_SF %>% select("ID")
+  whole_tbl <- data.frame()
+  
+  for (i in seq(from=1, to=nSamples, by=3)){
+    
+    a=i
+    b=a+2
+    
+    temp <- Empty[a:b,]
+    
+    temp$STD_0Gy <- sd(Norm_SF$norm_0[a:b,])
+    temp$STD_2Gy <- sd(Norm_SF$norm_2[a:b,])
+    temp$STD_3Gy <- sd(Norm_SF$norm_3[a:b,])
+    whole_tbl <- rbind(whole_tbl, temp)
+    
+  }
+  
+  STD <- unique(whole_tbl)
+  
+  
+  AVG_temp <- gather(AVG, "AVG_0Gy", 
+                     "AVG_2Gy", "AVG_3Gy", 
+                     key = "XR_dose_label", value = "AVG_SF")
+  
+  STD_temp <- gather(STD, "STD_0Gy", 
+                     "STD_2Gy", "STD_3Gy",
+                     key = "XR_dose_label", value = "STD_SF")
+  
+  zero_A <- AVG_temp %>% filter(str_detect(XR_dose_label, "0")) %>%  mutate(XR_dose=0) %>% select(!"XR_dose_label")
+  two_A <-  AVG_temp %>% filter(str_detect(XR_dose_label, "2"))  %>%  mutate(XR_dose=2) %>% select(!"XR_dose_label")
+  three_A <- AVG_temp %>% filter(str_detect(XR_dose_label, "3")) %>%  mutate(XR_dose=3) %>% select(!"XR_dose_label")
+
+  
+  zero_S <- STD_temp %>% filter(str_detect(XR_dose_label, "0")) %>%  select(!"XR_dose_label")
+  two_S <-  STD_temp %>% filter(str_detect(XR_dose_label, "2"))  %>%  select(!"XR_dose_label")
+  three_S <- STD_temp %>% filter(str_detect(XR_dose_label, "3")) %>%  select(!"XR_dose_label")
+
+  zero <- left_join(zero_A, zero_S, by = "ID")
+  two <- left_join(two_A, two_S, by = "ID")
+  three <- left_join(three_A, three_S, by = "ID")
+
+  Results_table_temp <- bind_rows(zero, two, three)
+  
+  Results_table <- left_join(Results_table_temp, dataset_Names, by = "ID") %>% 
+    select("CellType", "Drug", "Concentration", "XR_dose", "AVG_SF", "STD_SF", "ID")
+  
+  return(Results_table)
+  
+}
+
+
+#Read data
+#Rep 1 is when the incubator had 34 C degrees.
+
+ARHi <- read_tsv(file = "Data/...")
+
+## Calculate average SF
+
+
+ARHi_DMSO <- Norm_by_DMSO(ARHi, 20000, 24)
+ARHi_byT  <- Norm_by_treatment(ARHi, 2000, 24)
+pcDNA_DMSO    <-  Norm_by_DMSO(pcDNA, 20000, 24)
+pcDNA_byT     <-  Norm_by_treatment(pcDNA, 2000, 24)
+
+
+## When using geom_line, you can use scale_color_manual() to add the labels.
+## The desired order (or level) of labels in the legend is specified by factor().
+
+plotting_funtion_CFA <- function(data1, data2, Norm_type){
+  
+  Results_table <- bind_rows(data1, data2)
+  # files come with 200 D3 label, but the LNCaPs have 80 nM D3. Use paste...
+  Results_table$Dose_levels <- factor(Results_table$Concentration, 
+                                      c("DMSO", "100", "1000", "10",  "C1", "C2", "200", "C3"))
+  
+  ggplot(Results_table, aes(x=XR_dose, y=AVG_SF, color=Dose_levels)) +
+    geom_line() +
+    geom_point()+
+    scale_y_continuous(trans='log10')+
+    theme_classic() +
+    theme(legend.position="bottom")+
+    labs(colour = "Drug dose (nM)")+
+    scale_color_manual(labels = c("DMSO", "100 nM D1", "1000 nM D1", "10 nM D2 ", 
+                                  "10 nM D2\n + 100 D1", "10 nM D2\n + 1000 nM D1", 
+                                  paste(Drug1, " nM D3"), "80 nM D3\n + 1000 D1"), 
+                       values = c("purple", "gold", "blue", "darkblue", "green", "darkgreen", "red", "deeppink")) +
+    theme(legend.position="bottom")+
+    facet_wrap(~CellType)+
+    labs(title="Response to drug 1, drug 2  and drug 3 combinations", 
+         subtitle=paste("Survival Fraction Normalized by", Norm_type, "at 0 Gy", sep=" "), 
+         x="XR Dose (Gy)", y = "Average Survival Fraction")+
+    geom_errorbar(aes(ymin=AVG_SF-STD_SF, ymax=AVG_SF+STD_SF), width=.2,
+                  position=position_dodge(0.05))
+  
+  Cell_name <- paste(as.character(data1$CellType[1]), as.character(data2$CellType[1]), sep="_")
+  ggsave(filename = paste(Cell_name, Norm_type, "CFA", ".png", sep="_"))
+  
+}
+
+plotting_funtion_CFA(ARHi_DMSO, pcDNA_DMSO, "DMSO")
+plotting_funtion_CFA(ARHi_byT, pcDNA_byT, "Treatment")
+
+plotting_funtion_CFA(Myc_ctrl_DMSO, Myc_Dox_DMSO, "DMSO")
+plotting_funtion_CFA(Myc_ctrl_byT, Myc_Dox_byT, "Treatment")
+
+### When using Geom_bar, use scale_fill_discrete
+
+
+plot_data$Dose_levels <- factor(plot_combo$ID, c("1", "5", "6", "7", "8", "9"))
+
+
+ggplot(plot_data, aes(x=Concentration, y=AVG_SF, fill=Dose_levels)) + 
+  geom_bar(stat="identity", color="black", position=position_dodge()) +
+  geom_errorbar(aes(ymin=AVG_SF, ymax=AVG_SF+STD_SF), width=.2,
+                position=position_dodge(.9))+
+  scale_y_sqrt() +
+  scale_fill_discrete(name = "Dose in nM", labels = c("DMSO", "1000 nM D1", "500 nM D2 ", 
+                                                      "1000 nM D2", "1000 nM D1 + 500 D2", 
+                                                      "1000 nM D1 + 1000 nM D2"))+
+  labs(colour = "Drug dose in nM")+
+  facet_wrap(Dox_status~ XR_dose, nrow=2)+
+  theme(axis.text.x = element_blank(), axis.ticks = element_blank())+
+  labs(title="Survival Fraction Normalized to each treatment at 0 Gy", subtitle = "LNCaP-Myc",
+       x="Drug", y = "Average Survival Fraction")
+       
+ ## when using Geom_smooth use scale_color_discrete, and add the color grouping in the Geom_smooth line (not at the top).
+ 
+ 
+ results_table$Dose_levels <- factor(results_table$Concentration, 
+                                    c("DMSO", "100", "1000", "10",  "C1", "C2", "80", "C3"))
+
+ggplot(results_table, aes(x=XR_dose, y=AVG_SF)) +
+  geom_point(aes(color=Dose_levels))+
+  geom_smooth(method = "lm", formula = y ~ x + I(x^2), size = 0.5, se=FALSE, show.legend=TRUE,aes(color=Dose_levels))+
+  scale_y_continuous(trans='log10')+
+  theme_classic() +
+  labs(color="Drug dose (nM)")+
+  scale_color_discrete(labels=c("DMSO", "100 nM D1", "1000 nM D1", "10 nM D2", 
+                                  "10 nM D1 + 100 D2", "10 nM D1 + 1000 nM D2", 
+                                  paste(D3, " nM D3"), "200 nM D3 + 1000 D1"))+
+  facet_wrap(~CellType)+
+  labs(title="Response to drug 1, drug 2 and drug 3 combinations", 
+       subtitle="Survival Fraction Normalized to 0 Gy in DMSO", 
+       x="XR Dose (Gy)", y = "Average Survival Fraction")+
+  geom_errorbar(aes(ymin=AVG_SF-STD_SF, ymax=AVG_SF+STD_SF, color=Dose_levels), width=.2,
+                position=position_dodge(0.05))
+
+### Example of use of scal_fill_discrete and linetype
+#source: https://stackoverflow.com/questions/44157606/changing-the-legends-of-plot-using-geom-smooth-in-ggplot2
+
+p2<-  ggplot(mtcars, aes(x=mpg, y=disp, group=group)) +
+        geom_smooth(method=lm, se=FALSE,fullrange=TRUE, show.legend=TRUE,aes(linetype=group), colour="black")+
+        labs(linetype="Legend")+
+      scale_fill_discrete(labels=c("Experiment", "Control"))
+p2
