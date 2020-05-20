@@ -1,0 +1,81 @@
+## KM plots
+
+#see: https://rpkgs.datanovia.com/survminer/index.html
+library("survminer")
+require("survival")
+
+fit <- survfit(Surv(Lastobs, Outcome) ~ drug_application, data = plot_data)
+ggsurvplot(fit, data = plot_data, pval= TRUE)
+
+#Outcome: alive=0, dead=1
+#Lastobs: time period 
+
+## Boxplots to stratify patiets
+
+boxplot(Lastobs ~ Gleason, data = data_cohort, 
+        main="Gleason in data cohort",
+        ylab = "Follow up period (months)",
+        xlab = "Gleason category")
+        
+## scatter plots and saving function
+
+plotting_function <- function(dataset, IHC){
+
+        
+        ggscatter(dataset, x = "ratio", y = "PSA_lowtime", 
+                  add = "reg.line", conf.int = TRUE, 
+                  cor.coef = TRUE, cor.method = "pearson",
+                  #cor.coef.coord = c(1.5,1),
+                  title = "Months from ADT start to \nPSA nadir",
+                  xlab = paste(IHC, "post/",IHC, "pre"), ylab = "Months")
+        
+        ggsave(filename = paste(IHC, "PSA_lowtime", ".png", sep="_"))
+        
+        
+}
+
+
+### One line per patient
+
+## multiple lines, one per patient, useful for mixed models: 
+#https://stats.stackexchange.com/questions/98958/plots-to-illustrate-results-of-linear-mixed-effect-model
+
+ggplot(plot_data, 
+       aes(x=IHC_marker, y=log_ratio, color=Gleason_score)) +
+        geom_point(size=2) +
+        geom_line(aes(group=ID)) +
+        facet_wrap(~PCSS_cat, labeller=label_both)+
+        scale_color_viridis(option = "D")+
+        theme_minimal() +
+        labs(title = "log-ratio of IHC per patient")
+        
+ # Facet by patient
+ 
+ ggplot(plot_data %>% filter(IHC_marker %in% c("CD8", "FOXP3", "PD1", "PDL1")) %>% filter(PCSS_cat==1), 
+       aes(x=IHC_marker, y=log_ratio, color=Gleason_score)) +
+        geom_point(size=2) +
+        geom_line(aes(group=ID)) +
+        facet_wrap(~ID, labeller=label_both)+
+        scale_color_viridis(option = "D")+
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 90))+
+        labs(title = "log-ratio of IHC per patient \nPCSS= dead")
+
+
+#Bar plot per patient
+
+## Bar plot
+
+ggplot(plot_data %>% filter(PCSS_cat==0), aes(x=IHC_marker, y=log_ratio, fill=Gleason_score)) + 
+        geom_bar(stat="identity", color="black", position=position_dodge())+ 
+        facet_wrap(~ID, labeller=label_both)+
+        scale_fill_viridis(option = "D")+
+        theme_minimal() +
+        theme(axis.text.x = element_text(angle = 90))
+        
+       #check ###scale_fill_discrete(name = "IHC marker", labels = c("FOXP", "CD3", "CD4", "CD8", "PD1", "PDL1"))+
+       #check ###facet_wrap(~ID, labeller=label_both)+
+       #check ###theme(axis.text.x = element_blank(), axis.ticks = element_blank())+
+       #check ###labs(title="Survival Fraction Normalized to DMSO control at 0 Gy", x="Drug", y = "Average Survival Fraction")
+
+
