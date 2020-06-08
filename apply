@@ -1,0 +1,21 @@
+#Learned how to use apply. 
+
+
+meanWithoutNA<-function(x) {
+  mean(x[which(!is.na(x))])
+}
+
+#A is a colum, not a row!
+#test <- data.frame(A=c(2.5, 2.5, 5),
+#                   B=c(3, NA, 6),
+#                   C=c(6, 3, 9))
+#apply(test, 2, meanWithoutNA) #column
+#apply(test, 1, meanWithoutNA) #row
+
+
+df_avgs <- data.frame("ID" = PA_data$ID,
+                      "PA_avg"= (apply(PA_data %>% spread(weeks, level), 1, meanWithoutNA)),
+                      "PB_avg"= (apply(PB_data %>% spread(weeks, level), 1, meanWithoutNA)),
+                      "PC_avg"= (apply(PC_data %>% spread(weeks, level), 1, meanWithoutNA)),
+                      "PMix_avg"= (apply(PMix_data %>% spread(weeks, level), 1, meanWithoutNA)))
+
