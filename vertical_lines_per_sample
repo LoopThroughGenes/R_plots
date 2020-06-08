@@ -1,0 +1,32 @@
+#Used this plot whe I wated to show a date per patient, as a vertical line. 
+#Use mapping in geom_vline
+
+ggplot(plot_data, aes(x=weeks, y=level)) + 
+  geom_bar(stat="identity", position=position_dodge())+ 
+  scale_y_sqrt() +
+  geom_vline(data=plot_data, mapping = aes(xintercept = weeks_to_UV1, color="Vaccination"))+
+  geom_hline(yintercept = 3, linetype="dashed")+
+  geom_vline(data=plot_data, mapping = aes(xintercept = weeks_to_RT, color="RT date"))+
+  facet_wrap(PCSS_cat~ID, labeller=label_both)+
+  theme_minimal()+
+  labs(title = paste("Peptide level:", label_pep, sep=" "))
+ggsave(filename = paste(label, "bar_per_patient_RT", ".png", sep="_"))
+
+#I was asked to add a symbol per patient. I can get maximum 25. You can get them like this.
+
+ggplot(plot_data) +
+  geom_smooth(data=plot_data, aes(x=weeks, y=level))+
+  geom_jitter(aes(x=weeks, y=level, shape=as.character(ID)))+
+  geom_vline(data=plot_data, mapping = aes(xintercept = weeks_to_RT, color="RT"))+
+  geom_vline(data=plot_data, mapping = aes(xintercept = weeks_to_vacc, color="Vaccination"))+
+  geom_vline(data=plot_data, mapping = aes(xintercept = IR_weeks, color="Immunoresponse"))+
+  geom_hline(aes(yintercept = 3, linetype="High Stimmulation index \n (SI) 3"))+
+  scale_linetype_manual(name = "Dashed line", values = c(2), 
+                        guide = guide_legend(override.aes = list(color = c("black"))))+
+  geom_text(aes(0,3,label = "SI", vjust = -1))+
+  scale_shape_manual(name = "Patient", values = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23))+
+  coord_cartesian(xlim =c(0, 75), ylim = c(0, 40))+
+  facet_wrap(~PCSS_cat, labeller=label_both)+
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90))+
+  theme(legend.position="bottom")
