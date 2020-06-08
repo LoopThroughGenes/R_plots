@@ -1,0 +1,8 @@
+# Simple heatmap to look over your data.
+
+
+  heatmap.2(as.matrix(set1),dendrogram='none', Rowv=FALSE, Colv=FALSE,trace='none', 
+            main = paste(cell1, XR_dose, "\n", seed1, "seed", sep=" "),
+            xlab = "Drug Triplicates",
+            ylab = "Time")
+  
