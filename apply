@@ -13,8 +13,7 @@ meanWithoutNA<-function(x) {
 #apply(test, 1, meanWithoutNA) #row
 
 
-df_avgs <- data.frame("ID" = PA_data$ID,
-                      "PA_avg"= (apply(PA_data %>% spread(weeks, level), 1, meanWithoutNA)),
+df_avgs <- data.frame("PA_avg"= (apply(PA_data %>% spread(weeks, level), 1, meanWithoutNA)),
                       "PB_avg"= (apply(PB_data %>% spread(weeks, level), 1, meanWithoutNA)),
                       "PC_avg"= (apply(PC_data %>% spread(weeks, level), 1, meanWithoutNA)),
                       "PMix_avg"= (apply(PMix_data %>% spread(weeks, level), 1, meanWithoutNA)))
